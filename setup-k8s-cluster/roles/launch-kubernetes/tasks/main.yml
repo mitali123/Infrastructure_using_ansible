@@ -1,0 +1,22 @@
+---
+- name: Create cluster
+  shell: 
+    kops create cluster \
+    --zones {{ aws_az_info.availability_zones[0].zone_name}},{{aws_az_info.availability_zones[1].zone_name}},{{aws_az_info.availability_zones[2].zone_name }} \
+    --dns-zone {{ DNS_ZONE }} \
+    --name {{ CLUSTER_NAME }} \
+    --node-size {{ COMPUTE_NODE_SIZE }} \
+    --node-count {{ COMPUTE_NODE_COUNT }} \
+    --master-size {{ MASTER_NODE_SIZE }} \
+    --master-count {{ MASTER_COUNT }} \
+    --master-zones {{ aws_az_info.availability_zones[0].zone_name }},{{aws_az_info.availability_zones[1].zone_name}},{{aws_az_info.availability_zones[2].zone_name }} \
+    --ssh-public-key {{ SSH_KEY_PATH }} \
+    --cloud aws \
+    --kubernetes-version  {{ KUBERNETES_VERSION }} \
+    --topology private \
+    --networking kopeio-vxlan \
+    --bastion=true \
+    --state s3://{{ S3_BUCKET }} \
+    --yes
+  
+

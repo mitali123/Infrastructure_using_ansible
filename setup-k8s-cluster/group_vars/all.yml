@@ -1,0 +1,18 @@
+---
+aws_region: us-east-1
+vpc_name: jenkins_vpc
+cidr_block: 10.0.0.0/16
+subnet1_cidr: 10.0.1.0/24
+subnet2_cidr: 10.0.2.0/24
+subnet3_cidr: 10.0.3.0/24
+tag_pub_sub1: PublicSubnet1
+tag_pub_sub2: PublicSubnet2
+tag_pub_sub3: PublicSubnet3
+sg_name: jenkins_ec2_sec_group
+image_id: ami-0817d428a6fb68645
+eip_tag_name: eip
+eip_tag_value: jenkins
+route_tbl_name: jenkins_route_tbl
+server_group_name: jenkins_server
+subnet_sec_grp: sg_subnet
+vpc_sec_grp: sqldb

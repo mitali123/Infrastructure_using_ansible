@@ -1,0 +1,11 @@
+---
+# tasks file for gather-facts
+- name: gather availability zone details from facts
+  aws_az_info:
+    region: "{{ AWS_REGION }}"
+  register: aws_az_info
+
+#print all facts
+- name: print availability zones to be used
+  debug:
+    msg: "{{ aws_az_info.availability_zones[0].zone_name }},{{ aws_az_info.availability_zones[1].zone_name }},{{ aws_az_info.availability_zones[2].zone_name }}"

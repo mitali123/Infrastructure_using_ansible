@@ -1,0 +1,13 @@
+---
+- name: Tear Down Jenkins
+  hosts: localhost
+  gather_facts: no
+  vars:
+    ec2_tag:
+      key: "{{ key }}"
+      value: "{{ value }}"
+    #ec2_tag1: "{{ ec2_tag | get_attr('key','value') }}"    
+  roles:
+    - teardown-jenkins-ec2
+  environment:
+    aws_profile: "{{ aws_profile }}"

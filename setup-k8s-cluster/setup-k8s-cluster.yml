@@ -1,0 +1,63 @@
+---
+- name: "Create VPC"
+  hosts: localhost
+  gather_facts: yes
+
+  vars_prompt:
+
+    - name: CLUSTER_NAME
+      prompt: "Please enter cluster name:"
+      private: no
+
+    - name: S3_BUCKET
+      prompt: "Please enter S3 bucket name:"
+      private: no
+
+    - name: DNS_ZONE
+      prompt: "Please enter dns zone:"
+      private: no
+
+    - name: KUBERNETES_VERSION
+      prompt: "Please enter Kubernetes varsion:"
+      default: "1.17.12"
+      private: no
+
+    - name: SSH_KEY_PATH
+      prompt: "Please enter ssh key path:"
+      private: no
+
+    - name: MASTER_NODE_SIZE
+      prompt: "Please enter master node size:"
+      private: no
+
+    - name: COMPUTE_NODE_SIZE
+      prompt: "Please enter compute node size:"
+      default: "t2.micro"
+      private: no
+
+    - name: COMPUTE_NODE_COUNT
+      prompt: "Please enter compute node count:"
+      default: 3
+      private: no
+
+
+  environment:
+    AWS_ACCESS_KEY: "{{ my_access_key }}"
+    AWS_SECRET_KEY: "{{ my_secret_key }}"
+
+  roles:
+  - gather-facts
+  - launch-kubernetes
+  - validate-cluster
+
+- name: "Launch RDS"
+  hosts: localhost
+  gather_facts: yes
+
+  environment:
+    AWS_ACCESS_KEY: "{{ my_access_key }}"
+    AWS_SECRET_KEY: "{{ my_secret_key }}"
+
+  roles:
+  - launch-rds  
+

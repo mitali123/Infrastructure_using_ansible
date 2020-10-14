@@ -1,0 +1,4 @@
+---
+# vars file for delete-cluster
+AWS_PROFILE: kops
+

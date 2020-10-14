@@ -1,0 +1,162 @@
+---
+- name: Gather Kops VPC Info
+  ec2_vpc_net_info:
+    region: "{{ aws_region }}"
+    filters:
+        "tag:Name": "{{ CLUSTER_NAME }}"
+  register: kops_vpc 
+
+- name: Gather Jenkins VPC Info
+  ec2_vpc_net_info:
+    region: "{{ aws_region }}"
+    filters:
+        "tag:Name": "{{ vpc_name }}"
+  register: jenkins_vpc  
+
+- name: Gather Subnet Info 
+  ec2_vpc_subnet_info:
+    region: "{{ aws_region }}"
+    filters:
+      "tag:Name": "{{ tag_pub_sub1 }}" 
+  register: jenkins_subnet1
+  
+- name: Gather Subnet Info 
+  ec2_vpc_subnet_info:
+    region: "{{ aws_region }}"
+    filters:
+      "tag:Name": "{{ tag_pub_sub2 }}" 
+  register: jenkins_subnet2 
+
+- name: Gather Jenkins Route Table Info
+  ec2_vpc_route_table_info:
+    region: "{{ aws_region }}"
+    filters:
+      "tag:Name": "{{ route_tbl_name }}"
+  register: rt_jenkins 
+  
+# - name: Gather Jenkins Route Table Info
+#   ec2_vpc_route_table_info:
+#     region: "{{ aws_region }}"
+#     filters:
+#       vpc-id: "{{ jenkins_vpc.vpcs[0].id }}"
+#   register: rt_jenkins         
+
+- name: Get Kops route table Info
+  ec2_vpc_route_table_info:
+    region: "{{ aws_region }}"
+    filters:
+      "tag:Name": "{{ CLUSTER_NAME }}"
+  register: rt_kops
+
+# - name: Get Kops route table Info
+#   ec2_vpc_route_table_info:
+#     region: "{{ aws_region }}"
+#     filters:
+#       vpc-id: "{{ kops_vpc.vpcs[0].id }}"
+#   register: rt_kops    
+
+- name: Create VPC Security group
+  ec2_group:
+    name: sg_sqldb
+    description: Security group for RDS
+    vpc_id: "{{ jenkins_vpc.vpcs[0].id }}"
+    region: "{{ aws_region }}"
+    rules:
+      - proto: tcp
+        from_port: 3306
+        to_port: 3306
+        cidr_ip: "{{ kops_vpc.vpcs[0].cidr_block }}"
+    tags:
+      Name: sqldb  
+  register: sg_sqldb
+
+- name: Create VPC subnet security group
+  rds_subnet_group:
+    description: Create VPC security group
+    name: sg_subnet
+    region: "{{ aws_region }}"
+    state: present
+    subnets: 
+      - "{{ jenkins_subnet1.subnets[0].subnet_id }}"
+      - "{{ jenkins_subnet2.subnets[0].subnet_id }}"
+  register: sg_subnet
+
+- name: Create RDS
+  rds_instance:
+    allocated_storage: 10
+    allow_major_version_upgrade: no 
+    apply_immediately: yes
+    auto_minor_version_upgrade: no
+    backup_retention_period: 0
+    db_instance_class: db.t2.micro
+    db_instance_identifier: rds-webapp
+    engine: mysql
+    master_user_password: "{{ db_pass }}"
+    master_username: "{{ db_user }}"
+    multi_az: no
+    publicly_accessible: no
+    read_replica: no
+    region: "{{ aws_region }}"
+    skip_final_snapshot: yes
+    state: present
+    storage_type: standard
+    db_subnet_group_name: sg_subnet
+    vpc_security_group_ids: 
+      - "{{ sg_sqldb.group_id }}"
+    wait: yes    
+
+- name: Get Caller Info
+  aws_caller_info: 
+  register: caller_info
+
+- name: Create VPC Peering
+  ec2_vpc_peer:
+    peer_owner_id: "{{ caller_info.account }}"
+    peer_region: "{{ aws_region }}"
+    peer_vpc_id: "{{ kops_vpc.vpcs[0].id }}"
+    region: "{{ aws_region }}"
+    state: present
+    tags:
+      Name: Kops Jenkins vpc peering
+    vpc_id: "{{ jenkins_vpc.vpcs[0].id }}"
+  register: peer_req
+
+- name: Accept peering request
+  ec2_vpc_peer:
+    region: "{{ aws_region }}"
+    peering_id: "{{ peer_req.peering_id }}"
+    state: accept
+  register: peer_action
+
+- name: Modify RDS vpc route tables to allow traffic to kops vpc over peering connection
+  ec2_vpc_route_table:
+    lookup: id
+    route_table_id: "{{ rt_jenkins.route_tables[0].id }}"
+    purge_routes: no
+    region: "{{ aws_region }}"
+    vpc_id: "{{ jenkins_vpc.vpcs[0].id }}"
+    state: present
+    routes:
+      - dest: "{{ kops_vpc.vpcs[0].cidr_block }}"
+        vpc_peering_connection_id: "{{ peer_req.peering_id }}"
+
+
+
+- name: Modify default kops route tables to allow traffic to rds vpc over peering connection
+  ec2_vpc_route_table:
+    lookup: id
+    route_table_id: "{{ rt_kops.route_tables[0].id }}"
+    purge_routes: no
+    region: "{{ aws_region }}"
+    vpc_id: "{{ kops_vpc.vpcs[0].id }}"
+    state: present
+    routes:
+      - dest: "{{ jenkins_vpc.vpcs[0].cidr_block }}"
+        vpc_peering_connection_id: "{{ peer_req.peering_id }}"  
+
+
+
+
+
+
+

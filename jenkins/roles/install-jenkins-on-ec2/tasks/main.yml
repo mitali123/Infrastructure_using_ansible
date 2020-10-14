@@ -1,0 +1,90 @@
+---
+- name: Pre tasks
+  raw: apt -y update && apt install -y python-minimal
+
+- name: Update repositories
+  apt_repository: 
+    repo: ppa:webupd8team/java
+    state: present
+
+- name: Install Java 8
+  apt:
+    name: openjdk-8-jdk
+    state: present
+    install_recommends: no
+
+- name: Add jenkins signing key
+  apt_key:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+    state: present
+
+- name: Add Jenkins repositories
+  apt_repository: 
+    repo: deb http://pkg.jenkins-ci.org/debian binary/
+    state: present
+
+- name: Install Jenkins
+  apt:
+    name: jenkins 
+
+- name: Install Docker
+  apt:
+    name: docker.io
+
+- name: Start Docker
+  shell: systemctl start docker
+
+- name: Automate Docker
+  shell: systemctl enable docker
+
+- name: Add jenkins user to docker group
+  user:
+    name: jenkins
+    group: docker
+    append: yes    
+
+- name: Modify Docker Socket File Permission
+  file:
+    path: /var/run/docker.sock
+    mode: '666'        
+
+- name: Add Certbot repository     
+  apt_repository:
+    repo: ppa:certbot/certbot
+    state: present
+
+- name: Install nginx server
+  apt:
+    name: nginx
+    state: present
+
+- name: Install certbot nginx server
+  apt:
+    name: python-certbot-nginx
+    state: present
+
+- name: Copy the nginx config file
+  template:
+    src: nginx_conf_file.j2
+    dest: /etc/nginx/sites-available/default
+
+- name: Start nginx server
+  service: 
+    name: nginx
+    state: started
+
+- name: Issue certbot certificate
+  shell: certbot --nginx -d {{ jenkins_dns_name }} --noninteractive --agree-tos --email {{ email }} --no-redirect
+
+- name: Check File Exists
+  shell: cat "{{ item }}"
+  with_first_found: 
+    - files: 
+        - /var/lib/jenkins/secrets/initialAdminPassword
+      skip: true
+  register: jenkins_pswd
+   
+- debug:
+    msg:
+    - "Jenkins Password Is: '{{ jenkins_pswd.stdout }}'"
+  when: jenkins_pswd.stdout is defined         

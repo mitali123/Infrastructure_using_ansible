@@ -1,0 +1,101 @@
+---
+- name: Create VPC
+  ec2_vpc_net:
+    name: "{{ vpc_name }}"
+    region: "{{ aws_region }}"
+    profile: "{{ aws_profile }}"
+    cidr_block: "{{ cidr_block }}"
+    tags:
+      purpose: jenkins_vpc
+    state: present
+  register: vpc 
+
+
+- name: Create Subnet1
+  ec2_vpc_subnet:
+    state: present
+    region: "{{ aws_region }}"
+    profile: "{{  aws_profile }}"
+    az: "{{ aws_region }}a"
+    cidr: "{{ subnet1_cidr }}"
+    vpc_id: "{{ vpc.vpc.id }}"
+    tags:
+      Name: "{{tag_pub_sub1 }}"
+    map_public: yes
+  register: subnet1  
+
+- name: Create Subnet2
+  ec2_vpc_subnet:
+    state: present
+    region: "{{ aws_region }}"
+    profile: "{{  aws_profile }}"
+    az: "{{ aws_region }}b"
+    cidr: "{{ subnet2_cidr }}"
+    vpc_id: "{{ vpc.vpc.id }}"
+    tags:
+      Name: "{{ tag_pub_sub2 }}"    
+    map_public: yes    
+  register: subnet2  
+
+- name: Create Subnet3
+  ec2_vpc_subnet:
+    state: present
+    region: "{{ aws_region }}"
+    profile: "{{  aws_profile }}"
+    az: "{{ aws_region }}c"
+    cidr: "{{ subnet3_cidr }}"
+    vpc_id: "{{ vpc.vpc.id }}"
+    tags:
+      Name: "{{ tag_pub_sub3 }}"    
+    map_public: yes    
+  register: subnet3          
+
+
+- name: Create Internet Gateway
+  ec2_vpc_igw:
+    state: present
+    region: "{{ aws_region }}"
+    profile: "{{ aws_profile }}"
+    vpc_id: "{{ vpc.vpc.id }}"
+  register: igw  
+
+- name: Create Route Table
+  ec2_vpc_route_table:
+    region: "{{ aws_region }}"
+    profile: "{{ aws_profile }}"
+    vpc_id: "{{ vpc.vpc.id }}"
+    tags:
+      Name: "{{ route_tbl_name }}"
+    subnets:
+      - "{{ subnet1.subnet.id }}"
+      - "{{ subnet2.subnet.id }}"
+      - "{{ subnet3.subnet.id }}"
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{ igw.gateway_id }}"   
+
+
+- name: Create Security Group 
+  ec2_group:
+    name: "{{ sg_name }}"
+    description: "Security Group for Jenkins Instance"
+    region: "{{ aws_region }}"
+    profile: "{{ aws_profile }}"
+    vpc_id: "{{ vpc.vpc.id }}"
+    rules:
+      - proto: tcp
+        ports:
+          - 22
+        rule_desc: allow ssh from my machine
+        cidr_ip: "{{ my_ip }}"
+      - proto: tcp
+        ports:
+          - 443
+        rule_desc: allow https traffic
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        ports:
+          - 80
+        rule_desc: allow http traffic
+        cidr_ip: 0.0.0.0/0
+  register: sg_jenkins_ec2

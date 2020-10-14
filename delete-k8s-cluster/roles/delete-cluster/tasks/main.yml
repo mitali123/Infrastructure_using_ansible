@@ -1,0 +1,3 @@
+---
+- name: Delete cluster
+  shell: "kops delete cluster  --state s3://{{ S3_BUCKET }} --name={{ CLUSTER_NAME }} --yes"

@@ -1,0 +1,76 @@
+---
+- name: Gather Info
+  ec2_vpc_net_info:
+    region: "{{ aws_region }}"
+    filters:
+        "tag:Name": "{{ CLUSTER_NAME }}"
+  register: kops_vpc 
+
+- name: Gather Jenkins VPC Info
+  ec2_vpc_net_info:
+    region: "{{ aws_region }}"
+    filters:
+        "tag:Name": "{{ vpc_name }}"
+  register: jenkins_vpc 
+
+- name: Gather Jenkins Route Table Info
+  ec2_vpc_route_table_info:
+    region: "{{ aws_region }}"
+    filters:
+      "tag:Name": "{{ route_tbl_name }}"
+  register: rt_jenkins 
+
+- name: Get Kops route table Info
+  ec2_vpc_route_table_info:
+    region: "{{ aws_region }}"
+    filters:
+      "tag:Name": "{{ CLUSTER_NAME }}"
+  register: rt_kops
+
+- name: Get Peering Connection Info
+  ec2_vpc_peering_facts:
+    region: "{{ aws_region }}"
+  register: vpc_peer  
+
+- name: Remove VPC Peering
+  ec2_vpc_peer:
+    region: "{{ aws_region }}"
+    state: absent
+    peering_id: "{{ vpc_peer.result[0].vpc_peering_connection_id }}"
+
+- name: Get information about an instance
+  rds_instance_info:
+    region: "{{ aws_region }}"
+    db_instance_identifier: rds-webapp
+  register: db_info 
+
+- name: remove the RDS instance
+  rds_instance:
+    id: rds-webapp
+    region: "{{ aws_region }}"
+    state: absent
+    skip_final_snapshot: True
+
+- name: "Delete Subnet Security Group"
+  rds_subnet_group:
+    region: "{{ aws_region }}"
+    state: absent
+    name: "{{ subnet_sec_grp }}"
+
+- name: "Delete VPC Security Group"
+  ec2_group:
+    region: "{{ aws_region }}"
+    state: absent 
+    name: "{{ vpc_sec_grp }}"
+
+- name: Delete Blackhole
+  command: aws ec2 delete-route --route-table-id {{ rt_jenkins.route_tables[0].id }} --profile {{ aws_profile }} --region {{ aws_region }} --destination-cidr-block {{ kops_vpc.vpcs[0].cidr_block }}
+            
+- name: Delete Blackhole 
+  command: aws ec2 delete-route --route-table-id {{ rt_kops.route_tables[0].id }} --profile {{ aws_profile }} --region {{ aws_region }} --destination-cidr-block {{ jenkins_vpc.vpcs[0].cidr_block }}
+
+
+
+
+
+

@@ -1,0 +1,8 @@
+---
+- name: Validate cluster
+  shell:
+    kops validate cluster --wait 40m --count 40 --state s3://{{ S3_BUCKET }}
+
+- name: Kubectl get nodes
+  shell:
+    kubectl get nodes
